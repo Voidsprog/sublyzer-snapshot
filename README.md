@@ -187,11 +187,22 @@ See [examples/rules.json](./examples/rules.json).
 
 ### Beautiful reports
 
-```bash
-# Offline HTML dashboard (charts, treemap, issues)
-npx sublyzer-snapshot report --html
+<div align="center">
 
-# SVG badge + README snippet
+<img src="./dashboard.png" alt="Sublyzer Snapshot HTML dashboard" width="900" />
+
+<sub>Offline HTML dashboard — health score, trends, treemap, issues</sub>
+
+</div>
+
+<br />
+
+```bash
+# Generate and open HTML dashboard in your browser
+npx sublyzer-snapshot dashboard
+
+# Or export HTML / badge manually
+npx sublyzer-snapshot report --html
 npx sublyzer-snapshot report --badge
 ```
 
