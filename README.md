@@ -2,6 +2,8 @@
 
 # Sublyzer Snapshot
 
+<img src="./Sublyzer1.png" alt="Sublyzer" width="96" />
+
 **Turn any codebase into a live Sublyzer dashboard in 30 seconds.**
 
 Scan routes, dependencies, and vulnerabilities locally — get a health score — push everything to [Sublyzer](https://sublyzer.com). No SDK required for your first check.

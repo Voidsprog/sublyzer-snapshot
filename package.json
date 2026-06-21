@@ -2,7 +2,12 @@
   "name": "sublyzer-snapshot",
   "version": "0.3.0",
   "description": "Open-source CLI — scan any project and push a health snapshot to Sublyzer in seconds",
+  "author": "Sublyzer <sublyzerone@gmail.com>",
   "license": "MIT",
+  "homepage": "https://github.com/sublyzer-one/sublyzer-snapshot#readme",
+  "bugs": {
+    "url": "https://github.com/sublyzer-one/sublyzer-snapshot/issues"
+  },
   "type": "module",
   "bin": {
     "sublyzer-snapshot": "./dist/cli.js"
