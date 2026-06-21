@@ -1,33 +1,28 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import {
-  CONFIG_DIR,
-  HISTORY_DIR,
-  LAST_SNAPSHOT_FILE,
-  MAX_HISTORY_FILES,
-} from '../constants.js';
+import { CONFIG_DIR, HISTORY_DIR, LAST_SNAPSHOT_FILE, MAX_HISTORY_FILES } from '../constants.js';
 import type { ProjectSnapshot } from './snapshot.js';
 
-function sublyzerDir(root: string): string {
-  return path.join(root, CONFIG_DIR);
+function sublyzerDir(anchor: string): string {
+  return path.join(anchor, CONFIG_DIR);
 }
 
-export function lastSnapshotPath(root: string): string {
-  return path.join(sublyzerDir(root), LAST_SNAPSHOT_FILE);
+export function lastSnapshotPath(anchor: string): string {
+  return path.join(sublyzerDir(anchor), LAST_SNAPSHOT_FILE);
 }
 
-export function historyDir(root: string): string {
-  return path.join(sublyzerDir(root), HISTORY_DIR);
+export function historyDir(anchor: string): string {
+  return path.join(sublyzerDir(anchor), HISTORY_DIR);
 }
 
-export function saveScanHistory(snapshot: ProjectSnapshot, root = process.cwd()): void {
-  const dir = sublyzerDir(root);
+export function saveScanHistory(snapshot: ProjectSnapshot, anchor: string): void {
+  const dir = sublyzerDir(anchor);
   fs.mkdirSync(dir, { recursive: true });
 
   const payload = JSON.stringify(snapshot, null, 2);
-  fs.writeFileSync(lastSnapshotPath(root), `${payload}\n`, 'utf8');
+  fs.writeFileSync(lastSnapshotPath(anchor), `${payload}\n`, 'utf8');
 
-  const hist = historyDir(root);
+  const hist = historyDir(anchor);
   fs.mkdirSync(hist, { recursive: true });
   const stamp = snapshot.scannedAt.replace(/[:.]/g, '-');
   fs.writeFileSync(path.join(hist, `${stamp}.json`), `${payload}\n`, 'utf8');
@@ -47,8 +42,8 @@ export function saveScanHistory(snapshot: ProjectSnapshot, root = process.cwd())
   }
 }
 
-export function loadLastSnapshot(root = process.cwd()): ProjectSnapshot | null {
-  const file = lastSnapshotPath(root);
+export function loadLastSnapshot(anchor: string): ProjectSnapshot | null {
+  const file = lastSnapshotPath(anchor);
   if (!fs.existsSync(file)) return null;
   try {
     return JSON.parse(fs.readFileSync(file, 'utf8')) as ProjectSnapshot;
@@ -57,8 +52,8 @@ export function loadLastSnapshot(root = process.cwd()): ProjectSnapshot | null {
   }
 }
 
-export function loadPreviousSnapshot(root = process.cwd()): ProjectSnapshot | null {
-  const hist = historyDir(root);
+export function loadPreviousSnapshot(anchor: string): ProjectSnapshot | null {
+  const hist = historyDir(anchor);
   if (!fs.existsSync(hist)) return null;
   const files = fs
     .readdirSync(hist)

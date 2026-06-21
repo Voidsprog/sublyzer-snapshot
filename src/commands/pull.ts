@@ -1,4 +1,4 @@
-import { loadConfig, resolveReadKey } from '../config.js';
+import { isCloudConfig, loadConfig, resolveReadKey } from '../config.js';
 import { fetchPublicSnapshot } from '../api/sublyzer.js';
 import { info, ok, title } from '../utils/log.js';
 
@@ -12,6 +12,9 @@ export type PullOptions = {
 
 export async function runPull(opts: PullOptions = {}): Promise<unknown> {
   const config = loadConfig();
+  if (!isCloudConfig(config)) {
+    throw new Error('Cloud not linked. `pull` requires init --code and apiReadKey.');
+  }
   const readKey = resolveReadKey(config, opts.readKey);
 
   if (!readKey || readKey.length < 32) {
@@ -30,7 +33,7 @@ export async function runPull(opts: PullOptions = {}): Promise<unknown> {
     info(`Fetching from ${config.apiUrl}…`);
   }
 
-  const result = await fetchPublicSnapshot(config.apiUrl, config.integrationCode, readKey, {
+  const result = await fetchPublicSnapshot(config.apiUrl!, config.integrationCode!, readKey, {
     limit: opts.limit ?? 50,
     windowDays: opts.windowDays ?? 7,
     include,

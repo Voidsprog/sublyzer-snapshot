@@ -2,6 +2,7 @@ import {
   configExists,
   configPath,
   dashboardIntegrationUrl,
+  isCloudConfig,
   loadConfig,
   maskSecret,
   publicReadUrl,
@@ -12,53 +13,61 @@ export type StatusOptions = { json?: boolean };
 
 export async function runStatus(opts: StatusOptions = {}): Promise<Record<string, unknown>> {
   if (!configExists()) {
-    throw new Error(`Not initialized. Run: sublyzer-snapshot init`);
+    throw new Error('Not initialized. Run: npx sublyzer-snapshot init --local  (or scan without init)');
   }
 
   const config = loadConfig();
+  const cloud = isCloudConfig(config);
+
   const payload = {
     initialized: true,
-    configPath: configPath(),
+    mode: config.mode,
+    configPath: configPath(config.configRoot),
     projectName: config.projectName,
-    projectRoot: config.projectRoot,
+    configRoot: config.configRoot,
+    scanRoot: config.scanRoot,
     stack: config.stack,
-    integration: {
-      id: config.integrationId,
-      name: config.integrationName,
-      code: maskSecret(config.integrationCode, 6),
-      status: 'linked',
-    },
-    apiUrl: config.apiUrl,
+    cloudLinked: cloud,
+    integration: cloud
+      ? {
+          id: config.integrationId,
+          name: config.integrationName,
+          code: maskSecret(config.integrationCode, 6),
+        }
+      : null,
+    apiUrl: config.apiUrl ?? null,
     dashboardUrl: dashboardIntegrationUrl(config),
     readKey: config.readKey ? maskSecret(config.readKey) : null,
-    pullEnabled: Boolean(config.readKey || process.env.SUBLYZER_READ_KEY),
-    publicReadUrl: publicReadUrl(config, { limit: 50, windowDays: 7 }),
+    pullEnabled: cloud && Boolean(config.readKey || process.env.SUBLYZER_READ_KEY),
+    publicReadUrl: cloud ? publicReadUrl(config, { limit: 50, windowDays: 7 }) : null,
     createdAt: config.createdAt,
     updatedAt: config.updatedAt,
     lastScanAt: config.lastScanAt ?? null,
     lastScan: config.lastScan ?? null,
   };
 
-  if (opts.json) {
-    return payload;
-  }
+  if (opts.json) return payload;
 
   title('Sublyzer Snapshot — status');
+  info(`Mode:        ${config.mode}`);
   info(`Project:     ${config.projectName}`);
-  info(`Config:      ${configPath()}`);
-  info(`Stack:       ${config.stack}`);
-  info(`Integration: ${config.integrationName || '—'} (${maskSecret(config.integrationCode, 6)})`);
-  info(`Dashboard:   ${dashboardIntegrationUrl(config)}`);
-  info(`Read key:    ${config.readKey ? maskSecret(config.readKey) : '(not set — add via init or SUBLYZER_READ_KEY)'}`);
+  info(`Scan root:   ${config.scanRoot}`);
+  info(`Config:      ${configPath(config.configRoot)}`);
+  if (cloud) {
+    info(`Integration: ${config.integrationName || '—'} (${maskSecret(config.integrationCode, 6)})`);
+    info(`Dashboard:   ${dashboardIntegrationUrl(config) || '—'}`);
+  } else {
+    info('Cloud:       not linked (local-only — optional: init --code …)');
+  }
   if (config.lastScanAt) {
     info(`Last scan:   ${config.lastScanAt}`);
     if (config.lastScan) {
       info(
-        `  health ${config.lastScan.healthScore}/100 (${config.lastScan.healthGrade}), routes ${config.lastScan.routeCount}, vulns ${config.lastScan.vulnerablePackages}`,
+        `  health ${config.lastScan.healthScore}/100 (${config.lastScan.healthGrade}), routes ${config.lastScan.routeCount}, pushed ${config.lastScan.pushedToCloud ? 'yes' : 'no'}`,
       );
     }
   } else {
-    info('Last scan:   never — run `sublyzer-snapshot run`');
+    info('Last scan:   never — run `npx sublyzer-snapshot scan`');
   }
   console.log('');
 

@@ -6,7 +6,7 @@ export function renderMarkdownReport(
   snapshot: ProjectSnapshot,
   health: HealthScore,
   diff?: SnapshotDiff | null,
-  dashboardUrl?: string,
+  dashboardUrl?: string | null,
 ): string {
   const lines: string[] = [];
   const s = snapshot.summary;
@@ -15,6 +15,7 @@ export function renderMarkdownReport(
   lines.push('');
   lines.push(`**Generated:** ${snapshot.scannedAt}  `);
   lines.push(`**Stack:** ${snapshot.stack.label}  `);
+  if (snapshot.scanRoot) lines.push(`**Scan root:** \`${snapshot.scanRoot}\`  `);
   lines.push(`**Health:** ${health.score}/100 (grade ${health.grade})  `);
   if (dashboardUrl) lines.push(`**Dashboard:** ${dashboardUrl}  `);
   lines.push('');
@@ -28,6 +29,9 @@ export function renderMarkdownReport(
   lines.push(`| Vulnerabilities | ${s.vulnerablePackages} (C:${s.criticalVulns} H:${s.highVulns}) |`);
   if (snapshot.outdated?.ran) {
     lines.push(`| Outdated packages | ${snapshot.outdated.total} (${snapshot.outdated.majorCount} major) |`);
+  }
+  if (snapshot.bundle?.scanned) {
+    lines.push(`| Build output | ${snapshot.bundle.totalMb} MB |`);
   }
   if (snapshot.git.available) {
     lines.push(`| Git | \`${snapshot.git.branch}@${snapshot.git.commit}\`${snapshot.git.dirty ? ' *(dirty)*' : ''} |`);

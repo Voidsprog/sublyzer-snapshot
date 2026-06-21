@@ -8,7 +8,8 @@ import { runInit } from './commands/init.js';
 import { runOpen } from './commands/open.js';
 import { runPull } from './commands/pull.js';
 import { runReport } from './commands/report.js';
-import { runScan } from './commands/run.js';
+import { runRunCommand } from './commands/run.js';
+import { runScanCommand } from './commands/scan.js';
 import { runStatus } from './commands/status.js';
 
 const program = new Command();
@@ -21,25 +22,64 @@ function handleError(e: unknown): never {
 
 const FAIL_ON_LEVELS: FailOnLevel[] = ['critical', 'high', 'moderate', 'any'];
 
+function sharedScanOptions(cmd: Command) {
+  return cmd
+    .option('--path <dir>', 'Scan a subfolder (e.g. frontend, backend)')
+    .option('--skip-audit', 'Skip npm audit')
+    .option('--skip-outdated', 'Skip npm outdated check')
+    .option('--skip-bundle', 'Skip build output size scan')
+    .option('--json', 'JSON output')
+    .option('--fail-on <level>', 'Exit 1 on vulns: critical|high|moderate|any');
+}
+
 program
   .name('sublyzer-snapshot')
-  .description('Scan any project and push a health snapshot to Sublyzer')
+  .description('Local project health scanner — optional Sublyzer cloud sync')
   .version(SDK_VERSION);
+
+sharedScanOptions(
+  program
+    .command('scan')
+    .description('Scan project locally (no account, no init required)')
+    .option('--push', 'Push to Sublyzer if cloud config exists'),
+)
+  .action(async (opts) => {
+    try {
+      const failOn = FAIL_ON_LEVELS.includes(opts.failOn) ? opts.failOn : undefined;
+      const result = await runScanCommand({
+        path: opts.path,
+        push: opts.push,
+        skipAudit: opts.skipAudit,
+        skipOutdated: opts.skipOutdated,
+        skipBundle: opts.skipBundle,
+        json: opts.json,
+        failOn,
+      });
+      if (opts.json) console.log(JSON.stringify(result, null, 2));
+      if (result.policyFailed) process.exit(1);
+    } catch (e) {
+      handleError(e);
+    }
+  });
 
 program
   .command('init')
-  .description('Detect stack and link this project to your Sublyzer integration')
-  .option('--code <code>', 'Integration code (24 chars); or SUBLYZER_INTEGRATION_CODE')
-  .option('--read-key <key>', 'Optional apiReadKey for pull; or SUBLYZER_READ_KEY')
-  .option('--api-url <url>', 'Sublyzer API base URL')
-  .option('--dashboard-url <url>', 'Dashboard base URL')
-  .option('-y, --yes', 'Non-interactive when code is provided')
+  .description('Save scan preferences — local-only or link Sublyzer cloud')
+  .option('--local', 'Local mode only (no Sublyzer account)')
+  .option('--code <code>', 'Cloud: integration code (24 chars)')
+  .option('--read-key <key>', 'Cloud: apiReadKey for pull')
+  .option('--path <dir>', 'Preferred scan directory in monorepos')
+  .option('--api-url <url>', 'Sublyzer API URL')
+  .option('--dashboard-url <url>', 'Dashboard URL')
+  .option('-y, --yes', 'Non-interactive')
   .option('--skip-gitignore', 'Do not update .gitignore')
   .action(async (opts) => {
     try {
       await runInit({
+        local: opts.local,
         code: opts.code,
         readKey: opts.readKey,
+        path: opts.path,
         apiUrl: opts.apiUrl,
         dashboardUrl: opts.dashboardUrl,
         yes: opts.yes,
@@ -50,21 +90,25 @@ program
     }
   });
 
-program
-  .command('run')
-  .description('Scan routes, dependencies, vulnerabilities and push to Sublyzer')
-  .option('--dry-run', 'Scan locally without sending data')
-  .option('--skip-audit', 'Skip npm audit (faster)')
-  .option('--skip-outdated', 'Skip npm outdated check')
-  .option('--json', 'Output machine-readable JSON (CI friendly)')
-  .option('--fail-on <level>', 'Exit 1 if vulns at level: critical|high|moderate|any')
+sharedScanOptions(
+  program
+    .command('run')
+    .description('Scan + save history (pushes only in cloud mode or with --push)')
+    .option('--dry-run', 'Scan without saving push')
+    .option('--push', 'Force push to Sublyzer cloud')
+    .option('--local', 'Force local-only (no push)'),
+)
   .action(async (opts) => {
     try {
       const failOn = FAIL_ON_LEVELS.includes(opts.failOn) ? opts.failOn : undefined;
-      const result = await runScan({
+      const result = await runRunCommand({
+        path: opts.path,
         dryRun: opts.dryRun,
+        push: opts.push,
+        local: opts.local,
         skipAudit: opts.skipAudit,
         skipOutdated: opts.skipOutdated,
+        skipBundle: opts.skipBundle,
         json: opts.json,
         failOn,
       });
@@ -77,8 +121,8 @@ program
 
 program
   .command('status')
-  .description('Show linked integration and last scan summary')
-  .option('--json', 'Output machine-readable JSON')
+  .description('Show config and last scan')
+  .option('--json', 'JSON output')
   .action(async (opts) => {
     try {
       const data = await runStatus({ json: opts.json });
@@ -90,8 +134,8 @@ program
 
 program
   .command('doctor')
-  .description('Verify config, API connectivity, integration code and read key')
-  .option('--json', 'Output machine-readable JSON')
+  .description('Verify Node, scan target, optional cloud link')
+  .option('--json', 'JSON output')
   .action(async (opts) => {
     try {
       const result = await runDoctor({ json: opts.json });
@@ -104,15 +148,17 @@ program
 
 program
   .command('compare')
-  .description('Diff current vs previous scan (routes, vulns, health score)')
-  .option('--json', 'Output machine-readable JSON')
-  .option('--rescan', 'Run a fresh scan before comparing')
-  .option('--skip-audit', 'Skip audit when using --rescan')
+  .description('Diff vs previous scan')
+  .option('--json', 'JSON output')
+  .option('--rescan', 'Fresh scan before compare')
+  .option('--path <dir>', 'Scan path with --rescan')
+  .option('--skip-audit', 'Skip audit with --rescan')
   .action(async (opts) => {
     try {
       const data = await runCompare({
         json: opts.json,
         rescan: opts.rescan,
+        path: opts.path,
         skipAudit: opts.skipAudit,
       });
       if (opts.json) console.log(JSON.stringify(data, null, 2));
@@ -123,16 +169,18 @@ program
 
 program
   .command('report')
-  .description('Generate a Markdown health report (stdout or --out file)')
-  .option('--out <file>', 'Write report to file (e.g. sublyzer-report.md)')
-  .option('--rescan', 'Run a fresh scan instead of using last cached scan')
-  .option('--skip-audit', 'Skip audit when using --rescan')
-  .option('--json', 'Output JSON wrapper with markdown body')
+  .description('Markdown health report')
+  .option('--out <file>', 'Write to file')
+  .option('--rescan', 'Fresh scan')
+  .option('--path <dir>', 'Scan path with --rescan')
+  .option('--skip-audit', 'Skip audit')
+  .option('--json', 'JSON wrapper')
   .action(async (opts) => {
     try {
       const out = await runReport({
         out: opts.out,
         rescan: opts.rescan,
+        path: opts.path,
         skipAudit: opts.skipAudit,
         json: opts.json,
       });
@@ -144,9 +192,9 @@ program
 
 program
   .command('ci')
-  .description('Print or write a GitHub Actions workflow for automated snapshots')
-  .option('--out <path>', 'Write workflow file (default: .github/workflows/sublyzer-snapshot.yml)')
-  .option('--print', 'Print template to stdout only')
+  .description('GitHub Actions workflow template')
+  .option('--out <path>', 'Write workflow file')
+  .option('--print', 'Print to stdout')
   .action(async (opts) => {
     try {
       await runCi({ out: opts.out, print: opts.print ?? !opts.out });
@@ -157,12 +205,12 @@ program
 
 program
   .command('pull')
-  .description('Fetch integration data from Sublyzer (requires apiReadKey)')
-  .option('--read-key <key>', 'apiReadKey; or SUBLYZER_READ_KEY in env/config')
+  .description('Fetch data from Sublyzer cloud (requires apiReadKey)')
+  .option('--read-key <key>', 'apiReadKey')
   .option('--limit <n>', 'Max events', (v) => parseInt(v, 10))
-  .option('--window-days <n>', 'Lookback window in days', (v) => parseInt(v, 10))
-  .option('--include <csv>', 'stats,events,telemetry,performance,sdkStatus,activeErrors')
-  .option('--json', 'Output raw API JSON only')
+  .option('--window-days <n>', 'Lookback days', (v) => parseInt(v, 10))
+  .option('--include <csv>', 'API include list')
+  .option('--json', 'JSON output')
   .action(async (opts) => {
     try {
       const data = await runPull({
@@ -180,7 +228,7 @@ program
 
 program
   .command('open')
-  .description('Open the Sublyzer dashboard for this integration')
+  .description('Open Sublyzer dashboard (cloud mode only)')
   .action(async () => {
     try {
       await runOpen();

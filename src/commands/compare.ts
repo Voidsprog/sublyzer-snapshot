@@ -1,9 +1,10 @@
-import { loadConfig } from '../config.js';
+import { tryLoadConfig } from '../config.js';
 import {
   diffSnapshots,
   loadLastSnapshot,
   loadPreviousSnapshot,
 } from '../scan/history.js';
+import { resolveScanTarget } from '../detect/scan-target.js';
 import { buildProjectSnapshot } from '../scan/snapshot.js';
 import { info, title } from '../utils/log.js';
 
@@ -11,22 +12,26 @@ export type CompareOptions = {
   json?: boolean;
   rescan?: boolean;
   skipAudit?: boolean;
+  path?: string;
 };
 
 export async function runCompare(opts: CompareOptions = {}): Promise<Record<string, unknown>> {
-  const config = loadConfig();
-  const root = config.projectRoot || process.cwd();
+  const config = tryLoadConfig();
+  const anchor = config?.configRoot || process.cwd();
 
-  const previous = loadPreviousSnapshot(root) || loadLastSnapshot(root);
+  const previous = loadPreviousSnapshot(anchor) || loadLastSnapshot(anchor);
   const current = opts.rescan
-    ? buildProjectSnapshot(root, { skipAudit: opts.skipAudit })
-    : loadLastSnapshot(root);
+    ? buildProjectSnapshot(anchor, {
+        skipAudit: opts.skipAudit,
+        target: resolveScanTarget(anchor, opts.path || config?.scanRoot),
+      })
+    : loadLastSnapshot(anchor);
 
   if (!current) {
-    throw new Error('No scan data. Run: sublyzer-snapshot run');
+    throw new Error('No scan data. Run: npx sublyzer-snapshot scan');
   }
   if (!previous || previous.scannedAt === current.scannedAt) {
-    throw new Error('Need at least two scans to compare. Run `sublyzer-snapshot run` again.');
+    throw new Error('Need at least two scans. Run `scan` or `run` again.');
   }
 
   const healthDelta =
@@ -38,12 +43,14 @@ export async function runCompare(opts: CompareOptions = {}): Promise<Record<stri
   const payload = {
     previous: {
       scannedAt: previous.scannedAt,
+      scanRoot: previous.scanRoot,
       healthScore: previous.health?.score ?? previous.summary?.healthScore,
       routes: previous.summary.routeCount,
       vulnerabilities: previous.summary.vulnerablePackages,
     },
     current: {
       scannedAt: current.scannedAt,
+      scanRoot: current.scanRoot,
       healthScore: current.health?.score ?? current.summary.healthScore,
       routes: current.summary.routeCount,
       vulnerabilities: current.summary.vulnerablePackages,

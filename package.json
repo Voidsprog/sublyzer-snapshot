@@ -1,7 +1,7 @@
 {
   "name": "sublyzer-snapshot",
-  "version": "0.3.0",
-  "description": "Open-source CLI — scan any project and push a health snapshot to Sublyzer in seconds",
+  "version": "0.4.0",
+  "description": "Open-source CLI — local project health scanner for Node.js (optional Sublyzer cloud sync)",
   "author": "Sublyzer <sublyzerone@gmail.com>",
   "license": "MIT",
   "homepage": "https://github.com/sublyzer-one/sublyzer-snapshot#readme",
@@ -26,15 +26,17 @@
     "node": ">=18"
   },
   "keywords": [
-    "sublyzer",
-    "monitoring",
-    "snapshot",
+    "health-check",
+    "project-scanner",
     "cli",
     "devtools",
     "nextjs",
     "nestjs",
     "security",
-    "observability"
+    "npm-audit",
+    "monorepo",
+    "sublyzer",
+    "snapshot"
   ],
   "repository": {
     "type": "git",

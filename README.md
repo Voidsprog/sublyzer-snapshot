@@ -2,35 +2,33 @@
 
 # Sublyzer Snapshot
 
-<img src="./Sublyzer1.png" alt="Sublyzer" width="96" />
+<img src="./Sublyzer1.png" alt="Sublyzer Snapshot" width="96" />
 
-**Turn any codebase into a live Sublyzer dashboard in 30 seconds.**
+**Local project health scanner for any Node.js codebase.**
 
-Scan routes, dependencies, and vulnerabilities locally — get a health score — push everything to [Sublyzer](https://sublyzer.com). No SDK required for your first check.
+Works **standalone** — no account required. Optionally sync to [Sublyzer](https://sublyzer.com) cloud when you want a live dashboard.
 
 <br />
 
-[![npm version](https://img.shields.io/badge/npm-v0.3.0-2563eb?style=for-the-badge&logo=npm&logoColor=white)](https://www.npmjs.com/package/sublyzer-snapshot)
+[![npm version](https://img.shields.io/npm/v/sublyzer-snapshot?style=for-the-badge&logo=npm&logoColor=white&label=npm)](https://www.npmjs.com/package/sublyzer-snapshot)
 [![License: MIT](https://img.shields.io/badge/License-MIT-22c55e?style=for-the-badge)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-18%2B-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
-[![Sublyzer](https://img.shields.io/badge/Powered%20by-Sublyzer-6366f1?style=for-the-badge)](https://sublyzer.com)
 
 <br />
 
-[`Quick Start`](#-quick-start) · [`How It Works`](#-how-it-works) · [`Commands`](#-commands) · [`CI/CD`](#-cicd) · [`Docs`](#-environment-variables) · [Sublyzer Dashboard](https://sublyzer.com/dashboard)
+[`Quick Start`](#-quick-start) · [`Standalone vs Cloud`](#-standalone-vs-cloud) · [`Monorepos`](#-monorepos) · [`Commands`](#-commands) · [`Roadmap`](#-roadmap)
 
 <br />
 
 ```
-  $ npx sublyzer-snapshot init && npx sublyzer-snapshot run
+  $ npx sublyzer-snapshot scan
 
-  Project:         my-saas-app
-  Stack:           Next.js (high)
-  Health:          [████████░░] 82/100  grade B
-  Routes:          14
-  Vulnerabilities: 2 (critical 0, high 1)
-  ✓ Sent 6 events → dashboard updated
+  Scan root:     frontend (auto-selected)
+  Stack:         Next.js (high)
+  Health:        [████████░░] 84/100  grade B
+  Routes:        42
+  Build output:  12.4 MB (.next)
+  ✓ Saved to .sublyzer/ (local)
 ```
 
 </div>
@@ -39,102 +37,86 @@ Scan routes, dependencies, and vulnerabilities locally — get a health score �
 
 ## ✨ Introduction
 
-**Sublyzer Snapshot** is an open-source CLI that answers one question every developer asks:
+**Sublyzer Snapshot** is an open-source CLI that scans your repo and answers:
 
-> *"How healthy is my project right now?"*
+> *How healthy is this project right now?*
 
-Instead of wiring up three separate tools (dependency scanner, route inventory, monitoring dashboard), you run **one command**. Snapshot scans your repo locally, computes a **health score (0–100)**, and pushes structured events to your **Sublyzer** integration — where you (or an AI agent like Hermes) can read them back.
+It runs **entirely on your machine**: stack detection, routes, dependency audit, outdated packages, build size, git metadata, and a **0–100 health score**.
 
-Built for **indie hackers**, **startup teams**, and **agencies** who want instant project visibility without a week of DevOps setup.
-
----
-
-## 🎯 What is it for?
-
-| Use case | What you get |
-|----------|--------------|
-| **First-time project check** | Stack detection, route map, CVE summary in ~30s |
-| **Pre-deploy sanity check** | Health score + vulnerability gate before shipping |
-| **CI/CD pipeline** | `--fail-on high` blocks merges with critical CVEs |
-| **Client / team reports** | `report --out HEALTH.md` — shareable Markdown |
-| **Trend tracking** | `compare` shows what changed since last scan |
-| **Sublyzer onboarding** | Data in your dashboard before installing the browser SDK |
-
-### Before vs After
-
-| Before | After (Sublyzer Snapshot) |
-|--------|---------------------------|
-| Sentry + Dependabot + manual spreadsheet | One CLI, one dashboard |
-| 45+ min setup | ~30 seconds |
-| No unified health score | 0–100 score with grade A–F |
-| Hard to show clients "project status" | Export `report.md` in one command |
+**Sublyzer cloud is optional** — use it when you want events in a shared dashboard, agents (Hermes), or team visibility. Without cloud, you still get reports, history, CI gates, and compare diffs.
 
 ---
 
-## ⚙️ How it works
+## 🔀 Standalone vs Cloud
 
-```mermaid
-flowchart LR
-  A[Your repo] --> B[sublyzer-snapshot run]
-  B --> C[Local scan]
-  C --> D[Routes · deps · audit · git]
-  D --> E[Health score 0-100]
-  E --> F[Sublyzer API]
-  F --> G[Dashboard]
-  G --> H[Hermes / agents / team]
+| | **Standalone (default)** | **Cloud (optional)** |
+|---|--------------------------|----------------------|
+| Account | None | [Sublyzer](https://sublyzer.com) integration code |
+| Command | `npx sublyzer-snapshot scan` | `init --code …` then `run --push` |
+| Output | Terminal + `.sublyzer/` history | + Sublyzer dashboard |
+| CI | `scan --fail-on high` | + optional push via secret |
 
-  style A fill:#1e293b,stroke:#475569,color:#f8fafc
-  style G fill:#2563eb,stroke:#1d4ed8,color:#fff
-  style E fill:#22c55e,stroke:#16a34a,color:#fff
+```bash
+# Standalone — zero setup
+npx sublyzer-snapshot scan
+
+# Optional cloud link
+npx sublyzer-snapshot init --code YOUR_24_CHAR_CODE -y
+npx sublyzer-snapshot run --push
 ```
-
-1. **`init`** — Links your project folder to a Sublyzer integration (24-char code).
-2. **`run`** — Scans locally: framework, routes, `npm audit`, outdated packages, git metadata.
-3. **Score** — Computes health grade from vulnerabilities, routes, env hygiene, and more.
-4. **Push** — Sends events to `POST /data-collection/collect-batch` on Sublyzer.
-5. **Dashboard** — Data appears under your integration; optional SDK for live telemetry later.
-
-Scan history is stored in `.sublyzer/` (gitignored automatically) so `compare` can show diffs over time.
 
 ---
 
 ## 🚀 Quick start
 
-### Prerequisites
-
-- **Node.js 18+**
-- **npm** (for audit/outdated; optional with `--skip-audit`)
-- A [Sublyzer](https://sublyzer.com) account + **integration code** (24 chars, from Dashboard → Integrations)
-
-### Install & run
+### Install (use npx — recommended)
 
 ```bash
-# 1. Link your project
-npx sublyzer-snapshot init
+npx sublyzer-snapshot@latest --version
+```
 
-# 2. Scan and push
+Do **not** run `npm i sublyzer-snapshot` in random folders — use `npx` to avoid unrelated peer dependency conflicts.
+
+### Scan any project
+
+```bash
+cd your-project
+npx sublyzer-snapshot scan
+npx sublyzer-snapshot report --out HEALTH.md
+npx sublyzer-snapshot compare
+```
+
+### Save preferences (local)
+
+```bash
+npx sublyzer-snapshot init --local
 npx sublyzer-snapshot run
+```
 
-# 3. Open dashboard
+### Optional cloud sync
+
+```bash
+npx sublyzer-snapshot init --code YOUR_24_CHAR_CODE -y
+npx sublyzer-snapshot run --push
 npx sublyzer-snapshot open
 ```
 
-Non-interactive (CI / scripts):
+---
+
+## 📦 Monorepos
+
+Snapshot **auto-picks** the best package in monorepos (npm/pnpm workspaces, `frontend/`, `backend/`, etc.).
 
 ```bash
-export SUBLYZER_INTEGRATION_CODE="YOUR_24_CHAR_CODE"
-npx sublyzer-snapshot init -y
-npx sublyzer-snapshot run --fail-on high
+# From repo root — auto-selects e.g. frontend/
+npx sublyzer-snapshot scan
+
+# Force a subfolder
+npx sublyzer-snapshot scan --path backend
+npx sublyzer-snapshot init --local --path frontend
 ```
 
-### Development (this monorepo)
-
-```bash
-cd projects/sublyzer-snapshot
-npm install && npm run build
-node dist/cli.js init --code YOUR_CODE -y
-node dist/cli.js run --dry-run
-```
+On `init`, other scannable packages in the repo are listed as hints.
 
 ---
 
@@ -142,165 +124,104 @@ node dist/cli.js run --dry-run
 
 | Command | Description |
 |---------|-------------|
-| `init` | Detect stack, validate code, write `.sublyzer/snapshot.json` |
-| `run` | Full scan + push to Sublyzer |
-| `report` | Generate Markdown health report (`--out report.md`) |
-| `compare` | Diff routes, vulns, and score vs previous scan |
-| `ci` | Print or write GitHub Actions workflow |
-| `status` | Show linked integration + last scan |
-| `doctor` | Verify config, API, integration code, read key |
-| `pull` | Fetch data back via public read API (needs `apiReadKey`) |
-| `open` | Open integration in browser |
+| **`scan`** | Local scan — **no init, no account** |
+| `init` | Save config — `--local` or `--code` for cloud |
+| `run` | Scan + history (pushes in cloud mode or with `--push`) |
+| `report` | Markdown report (`--out file.md`) |
+| `compare` | Diff vs previous scan |
+| `doctor` | Verify Node, scan target, optional cloud |
+| `status` | Config + last scan |
+| `ci` | GitHub Actions template |
+| `pull` / `open` | Cloud only (read API / dashboard) |
 
-### Common flags
+### Flags
 
 ```bash
-sublyzer-snapshot run --dry-run          # Local preview, no push
-sublyzer-snapshot run --skip-audit       # Faster scan
-sublyzer-snapshot run --fail-on high     # Exit 1 on high/critical CVEs
-sublyzer-snapshot run --json             # CI-friendly JSON output
-
-sublyzer-snapshot report --out HEALTH.md
-sublyzer-snapshot compare --rescan
-sublyzer-snapshot ci --out .github/workflows/sublyzer-snapshot.yml
+npx sublyzer-snapshot scan --path frontend
+npx sublyzer-snapshot scan --fail-on high --json
+npx sublyzer-snapshot run --local              # never push
+npx sublyzer-snapshot run --push               # force cloud push
+npx sublyzer-snapshot run --skip-audit         # faster
 ```
 
 ---
 
-## 📊 Health score
+## 📊 What gets scanned
 
-Every scan produces a **0–100 score** and letter grade (**A–F**):
-
-| Factor | Impact |
-|--------|--------|
-| Critical CVEs | −25 each (max −50) |
-| High CVEs | −10 each (max −30) |
-| Moderate CVEs | −3 each |
-| Web stack with 0 routes detected | −8 |
-| Dirty git working tree | −3 |
-| Missing `.env.example` | −2 |
-| Major outdated packages | −3 each |
-
-Example terminal output:
-
-```
-  Health:        [████████░░] 82/100  grade B
-```
-
-The score is also sent to Sublyzer as a `snapshot_health_score` performance metric.
-
----
-
-## 🔍 What gets detected
-
-| Stack | Signals |
-|-------|---------|
-| **Next.js** | `next` in package.json, `app/` & `pages/` routes |
-| **NestJS** | `@nestjs/core`, decorator routes |
-| **Express / Fastify** | Route patterns in source |
-| **Remix / Nuxt / SvelteKit** | package.json dependencies |
-| **React / Vue / Node** | Fallback detection |
-| **Monorepos** | npm & pnpm workspaces |
-
-Each `run` sends:
-
-- `custom_event` → `project_snapshot` (stack, routes, git, audit summary)
-- `vulnerability` → top npm audit findings
-- `performance` → health score + route count
+- **Stack** — Next.js, NestJS, Express, Fastify, Remix, Nuxt, SvelteKit, React, Vue
+- **Routes** — `app/` / `pages/` or source patterns
+- **Dependencies** + `npm audit` + outdated packages
+- **Build size** — `dist/`, `.next/`, `build/` folders
+- **Git** — branch, commit, dirty state
+- **Health score** — 0–100, grade A–F
 
 ---
 
 ## 🔄 CI/CD
 
-### Fail the build on vulnerabilities
+Local-only CI (no secrets):
 
-```bash
-sublyzer-snapshot run --fail-on high --json > snapshot-result.json
+```yaml
+- run: npx sublyzer-snapshot@latest scan --fail-on high --json
 ```
 
-Levels: `critical` · `high` · `moderate` · `any`
-
-### Generate GitHub Actions workflow
+Generate full workflow:
 
 ```bash
-sublyzer-snapshot ci --out .github/workflows/sublyzer-snapshot.yml
+npx sublyzer-snapshot ci --out .github/workflows/sublyzer-snapshot.yml
 ```
 
-Add repository secret: **`SUBLYZER_INTEGRATION_CODE`**
-
-The generated workflow runs on push, PR, and weekly schedule — uploads JSON + Markdown report as artifacts.
-
----
-
-## 🤖 Read data back (agents & API)
-
-Push uses the **integration code**. To **read** snapshot data programmatically (e.g. Hermes):
-
-```bash
-# Get read key (authenticated)
-curl "https://api.sublyzer.com/integrations/{id}/read-access" \
-  -H "Authorization: Bearer YOUR_JWT"
-
-# Or via CLI
-sublyzer-snapshot pull --read-key YOUR_READ_KEY
-```
-
-Set `SUBLYZER_READ_KEY` in env or save during `init --read-key ...`.
+Optional cloud push when `SUBLYZER_INTEGRATION_CODE` secret is set.
 
 ---
 
 ## 🔐 Environment variables
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `SUBLYZER_INTEGRATION_CODE` | For `init` | 24-character integration code |
-| `SUBLYZER_READ_KEY` | For `pull` | Public read API key |
-| `SUBLYZER_API_URL` | No | Default: `https://api.sublyzer.com` |
-| `SUBLYZER_DASHBOARD_URL` | No | Default: `https://sublyzer.com` |
-
-> **Security:** `.sublyzer/snapshot.json` contains your integration code. It is auto-added to `.gitignore` on `init` — never commit it to public repos.
+| Variable | When |
+|----------|------|
+| `SUBLYZER_INTEGRATION_CODE` | Cloud `init` |
+| `SUBLYZER_READ_KEY` | Cloud `pull` |
+| `SUBLYZER_API_URL` | Custom API (default: `https://api.sublyzer.com`) |
 
 ---
 
-## 📁 Project structure (local)
+## 📁 Local data
 
 ```
 your-project/
-├── .sublyzer/
-│   ├── snapshot.json       # Linked integration config
-│   ├── last-snapshot.json  # Latest scan cache
-│   └── history/            # Previous scans (for compare)
-├── src/
-└── package.json
+└── .sublyzer/           # gitignored on init
+    ├── snapshot.json    # config (local or cloud)
+    ├── last-snapshot.json
+    └── history/         # for compare
 ```
 
 ---
 
 ## 🛣️ Roadmap
 
-- [ ] npm publish (`npx sublyzer-snapshot`)
-- [ ] `login` flow (no manual code paste)
-- [ ] Bundle size analysis
-- [ ] PR comment bot (GitHub App)
+- [x] npm publish — [sublyzer-snapshot](https://www.npmjs.com/package/sublyzer-snapshot)
+- [x] Standalone `scan` (no account)
+- [x] Local vs cloud modes
+- [x] Monorepo auto-target (`frontend/`, workspaces)
+- [x] Build output size scan
+- [x] Health score + compare + report + CI template
+- [ ] `login` OAuth (no manual code paste)
+- [ ] SARIF export for GitHub Security
+- [ ] PR comment bot
+- [ ] Python / Go stack detection
 
 ---
 
 ## 📄 License
 
-MIT © [Sublyzer](https://sublyzer.com) — see [LICENSE](./LICENSE).
+MIT — see [LICENSE](./LICENSE).
 
 ---
 
 <div align="center">
 
-**[Sublyzer](https://sublyzer.com)** · **[Documentation](https://sublyzer.com/docs)** · **[Dashboard](https://sublyzer.com/dashboard)**
+**[npm](https://www.npmjs.com/package/sublyzer-snapshot)** · **[Sublyzer Cloud](https://sublyzer.com)** · **[Docs](https://sublyzer.com/docs)**
 
-<br />
-
-If this saved you time, ⭐ star the repo — it helps other devs find it.
-
-<br />
-
-<sub>Built with TypeScript · Powered by <a href="https://sublyzer.com">Sublyzer</a> observability platform</sub>
+<sub>Standalone by default · Cloud when you need it</sub>
 
 </div>

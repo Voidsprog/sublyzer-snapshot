@@ -1,9 +1,11 @@
 import { SDK_NAME, SDK_VERSION } from '../constants.js';
+import type { ScanTarget } from '../detect/scan-target.js';
 import { detectGit, type GitInfo } from '../detect/git.js';
 import { detectEnvFiles, detectNodeEngine, detectScripts } from '../detect/meta.js';
 import { detectRoutes } from '../detect/routes.js';
 import { detectStack, listDependencies, readProjectName } from '../detect/stack.js';
 import { detectWorkspaces, type WorkspaceInfo } from '../detect/workspaces.js';
+import { detectBundleSizes, type BundleSizeInfo } from './bundle-size.js';
 import { computeHealthScore, formatHealthBar, type HealthScore } from './health-score.js';
 import { runNpmAudit, type AuditSummary } from './audit.js';
 import { runNpmOutdated, type OutdatedSummary } from './outdated.js';
@@ -11,6 +13,8 @@ import { runNpmOutdated, type OutdatedSummary } from './outdated.js';
 export type ProjectSnapshot = {
   scannedAt: string;
   projectName: string;
+  scanRoot: string;
+  scanTargetReason: string;
   stack: ReturnType<typeof detectStack>;
   routes: string[];
   dependencies: ReturnType<typeof listDependencies>;
@@ -21,6 +25,7 @@ export type ProjectSnapshot = {
   scripts: Record<string, string>;
   workspaces: WorkspaceInfo;
   outdated: OutdatedSummary;
+  bundle: BundleSizeInfo;
   audit: AuditSummary;
   health: HealthScore;
   summary: {
@@ -32,36 +37,46 @@ export type ProjectSnapshot = {
     highVulns: number;
     healthScore: number;
     healthGrade: HealthScore['grade'];
+    bundleMb: number;
   };
 };
 
 export type BuildSnapshotOptions = {
   skipAudit?: boolean;
   skipOutdated?: boolean;
+  skipBundle?: boolean;
+  target?: ScanTarget;
 };
 
-export function buildProjectSnapshot(root = process.cwd(), opts: BuildSnapshotOptions = {}): ProjectSnapshot {
-  const stack = detectStack(root);
-  const routes = detectRoutes(stack.id, root);
-  const dependencies = listDependencies(root);
+export function buildProjectSnapshot(
+  root = process.cwd(),
+  opts: BuildSnapshotOptions = {},
+): ProjectSnapshot {
+  const scanRoot = opts.target?.root || root;
+  const stack = opts.target?.stack || detectStack(scanRoot);
+  const routes = detectRoutes(stack.id, scanRoot);
+  const dependencies = listDependencies(scanRoot);
   const audit = opts.skipAudit
     ? { ran: false, total: 0, critical: 0, high: 0, moderate: 0, low: 0, advisories: [], error: 'skipped' }
-    : runNpmAudit(root);
+    : runNpmAudit(scanRoot);
   const outdated = opts.skipOutdated
     ? { ran: false, total: 0, majorCount: 0, packages: [], error: 'skipped' }
-    : runNpmOutdated(root);
+    : runNpmOutdated(scanRoot);
   const git = detectGit(root);
-  const env = detectEnvFiles(root);
-  const scripts = detectScripts(root);
-  const nodeEngine = detectNodeEngine(root);
+  const env = detectEnvFiles(scanRoot);
+  const scripts = detectScripts(scanRoot);
+  const nodeEngine = detectNodeEngine(scanRoot);
   const workspaces = detectWorkspaces(root);
+  const bundle = opts.skipBundle ? { scanned: false, totalBytes: 0, totalMb: 0, folders: [] } : detectBundleSizes(scanRoot);
 
   const productionDeps = dependencies.filter((d) => !d.dev).length;
   const devDeps = dependencies.filter((d) => d.dev).length;
 
   const partial = {
     scannedAt: new Date().toISOString(),
-    projectName: readProjectName(root),
+    projectName: readProjectName(scanRoot),
+    scanRoot,
+    scanTargetReason: opts.target?.reason || 'current directory',
     stack,
     routes,
     dependencies,
@@ -72,6 +87,7 @@ export function buildProjectSnapshot(root = process.cwd(), opts: BuildSnapshotOp
     scripts,
     workspaces,
     outdated,
+    bundle,
     audit,
     summary: {
       routeCount: routes.length,
@@ -82,6 +98,7 @@ export function buildProjectSnapshot(root = process.cwd(), opts: BuildSnapshotOp
       highVulns: audit.high,
       healthScore: 0,
       healthGrade: 'F' as HealthScore['grade'],
+      bundleMb: bundle.totalMb,
     },
   };
 
@@ -108,6 +125,7 @@ export function snapshotToCollectItems(snapshot: ProjectSnapshot): CollectItem[]
         eventType: 'project_snapshot',
         sdkVersion: SDK_VERSION,
         projectName: snapshot.projectName,
+        scanRoot: snapshot.scanRoot,
         stack: snapshot.stack,
         health: snapshot.health,
         routes: snapshot.routes.slice(0, 100),
@@ -116,6 +134,7 @@ export function snapshotToCollectItems(snapshot: ProjectSnapshot): CollectItem[]
         productionDeps: snapshot.summary.productionDeps,
         devDeps: snapshot.summary.devDeps,
         workspaces: snapshot.workspaces,
+        bundle: snapshot.bundle.scanned ? { totalMb: snapshot.bundle.totalMb, folders: snapshot.bundle.folders } : null,
         outdated: snapshot.outdated.ran
           ? { total: snapshot.outdated.total, majorCount: snapshot.outdated.majorCount }
           : null,
@@ -182,12 +201,29 @@ export function snapshotToCollectItems(snapshot: ProjectSnapshot): CollectItem[]
     });
   }
 
+  if (snapshot.bundle.scanned && snapshot.bundle.totalMb > 0) {
+    items.push({
+      dataType: 'performance',
+      source: SDK_NAME,
+      data: {
+        metric: 'snapshot_build_size_mb',
+        value: snapshot.bundle.totalMb,
+        unit: 'mb',
+        folders: snapshot.bundle.folders,
+        projectName: snapshot.projectName,
+      },
+    });
+  }
+
   return items;
 }
 
 export function printLocalSummary(snapshot: ProjectSnapshot): void {
   console.log('');
   console.log(`  Project:       ${snapshot.projectName}`);
+  if (snapshot.scanTargetReason !== 'current directory') {
+    console.log(`  Scan root:     ${snapshot.scanRoot} (${snapshot.scanTargetReason})`);
+  }
   console.log(`  Stack:         ${snapshot.stack.label} (${snapshot.stack.confidence})`);
   console.log(`  Health:        ${formatHealthBar(snapshot.health.score)}  grade ${snapshot.health.grade}`);
   const fw = Object.entries(snapshot.stack.frameworkVersions).slice(0, 4);
@@ -199,6 +235,9 @@ export function printLocalSummary(snapshot: ProjectSnapshot): void {
   }
   console.log(`  Routes:        ${snapshot.summary.routeCount}`);
   console.log(`  Dependencies:  ${snapshot.summary.productionDeps} prod / ${snapshot.summary.devDeps} dev`);
+  if (snapshot.bundle.scanned) {
+    console.log(`  Build output:  ${snapshot.bundle.totalMb} MB (${snapshot.bundle.folders.map((f) => f.name).join(', ')})`);
+  }
   if (snapshot.outdated.ran && snapshot.outdated.total > 0) {
     console.log(`  Outdated:      ${snapshot.outdated.total} (${snapshot.outdated.majorCount} major)`);
   }
