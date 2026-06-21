@@ -1,6 +1,6 @@
 {
   "name": "sublyzer-snapshot",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "Open-source CLI - local project health scanner for Node.js (optional Sublyzer cloud sync)",
   "author": "Sublyzer <sublyzerone@gmail.com>",
   "license": "MIT",

@@ -149,13 +149,14 @@ export function renderMarkdownReport(
     lines.push('');
   }
 
-  if (snapshot.audit.advisories.length) {
-    lines.push('## Top vulnerabilities');
+  if (snapshot.audit.findings?.length) {
+    lines.push('## Vulnerabilities (sublyzer-runtime)');
     lines.push('');
-    lines.push('| Severity | Package | Title |');
-    lines.push('|----------|---------|-------|');
-    for (const adv of snapshot.audit.advisories.slice(0, 10)) {
-      lines.push(`| ${adv.severity} | ${adv.name} | ${adv.title.replace(/\|/g, '/')} |`);
+    lines.push('| Severity | Scanner | Package / File | Issue |');
+    lines.push('|----------|---------|----------------|-------|');
+    for (const f of snapshot.audit.findings.slice(0, 15)) {
+      const loc = f.file ? `\`${f.file}${f.line ? `:${f.line}` : ''}\`` : f.name;
+      lines.push(`| ${f.severity} | ${f.scanner} | ${loc} | ${f.title.replace(/\|/g, '/')} |`);
     }
     lines.push('');
   }

@@ -7,7 +7,7 @@ import { detectStack, listDependencies, readProjectName } from '../detect/stack.
 import { detectWorkspaces, type WorkspaceInfo } from '../detect/workspaces.js';
 import { detectBundleSizes, type BundleSizeInfo } from './bundle-size.js';
 import { computeHealthScore, formatHealthBar, type HealthScore } from './health-score.js';
-import { runNpmAudit, type AuditSummary } from './audit.js';
+import { runNpmAudit, type VulnerabilityScanResult } from './audit.js';
 import { runNpmOutdated, type OutdatedSummary } from './outdated.js';
 import { runProjectAnalysis } from '../analyze/index.js';
 import type { ProjectAnalysis } from '../analyze/types.js';
@@ -29,7 +29,7 @@ export type ProjectSnapshot = {
   workspaces: WorkspaceInfo;
   outdated: OutdatedSummary;
   bundle: BundleSizeInfo;
-  audit: AuditSummary;
+  audit: VulnerabilityScanResult;
   health: HealthScore;
   analysis?: ProjectAnalysis;
   summary: {
@@ -64,7 +64,20 @@ export async function buildProjectSnapshot(
   const routes = detectRoutes(stack.id, scanRoot);
   const dependencies = listDependencies(scanRoot);
   const audit = opts.skipAudit
-    ? { ran: false, total: 0, critical: 0, high: 0, moderate: 0, low: 0, advisories: [], error: 'skipped' }
+    ? {
+        ran: false,
+        engine: 'sublyzer-runtime' as const,
+        total: 0,
+        critical: 0,
+        high: 0,
+        moderate: 0,
+        low: 0,
+        info: 0,
+        findings: [],
+        scanners: [],
+        advisories: [],
+        error: 'skipped',
+      }
     : runNpmAudit(scanRoot);
   const outdated = opts.skipOutdated
     ? { ran: false, total: 0, majorCount: 0, packages: [], error: 'skipped' }
@@ -160,29 +173,50 @@ export function snapshotToCollectItems(snapshot: ProjectSnapshot): CollectItem[]
         scriptNames: Object.keys(snapshot.scripts).slice(0, 30),
         audit: {
           ran: snapshot.audit.ran,
+          engine: snapshot.audit.engine,
           total: snapshot.audit.total,
           critical: snapshot.audit.critical,
           high: snapshot.audit.high,
           moderate: snapshot.audit.moderate,
           low: snapshot.audit.low,
+          scanners: snapshot.audit.scanners,
         },
         scannedAt: snapshot.scannedAt,
       },
     },
   ];
 
-  for (const adv of snapshot.audit.advisories.slice(0, 15)) {
-    const sev = adv.severity as CollectItem['severity'];
+  for (const f of snapshot.audit.findings.slice(0, 15)) {
     items.push({
       dataType: 'vulnerability',
-      severity: sev === 'critical' || sev === 'high' || sev === 'medium' || sev === 'low' ? sev : 'medium',
+      severity:
+        f.severity === 'critical' || f.severity === 'high'
+          ? f.severity
+          : f.severity === 'moderate'
+            ? 'medium'
+            : f.severity === 'low'
+              ? 'low'
+              : 'medium',
       source: SDK_NAME,
       data: {
-        type: 'dependency_audit',
-        package: adv.name,
-        title: adv.title,
-        severity: adv.severity,
-        scanner: 'npm-audit',
+        type:
+          f.type === 'dependency'
+            ? 'dependency_audit'
+            : f.title.toLowerCase().includes('xss')
+              ? 'xss'
+              : f.title.toLowerCase().includes('injection')
+                ? 'injection'
+                : f.title.toLowerCase().includes('secret') || f.title.toLowerCase().includes('key')
+                  ? 'sensitive-data-exposure'
+                  : 'code-pattern',
+        package: f.type === 'dependency' ? f.name : undefined,
+        title: f.title,
+        severity: f.severity,
+        scanner: f.scanner,
+        engine: snapshot.audit.engine,
+        resource: f.file ? `${f.file}${f.line ? `:${f.line}` : ''}` : f.name,
+        cve: f.cve,
+        fixAvailable: f.fixAvailable,
         projectName: snapshot.projectName,
       },
     });
@@ -260,11 +294,14 @@ export function printLocalSummary(snapshot: ProjectSnapshot): void {
     console.log(`  Git:           ${snapshot.git.branch} @ ${snapshot.git.commit}${dirty}`);
   }
   if (snapshot.audit.ran) {
+    const dep = snapshot.audit.findings.filter((f) => f.type === 'dependency').length;
+    const src = snapshot.audit.findings.filter((f) => f.type !== 'dependency').length;
     console.log(
-      `  Vulnerabilities: ${snapshot.audit.total} (critical ${snapshot.audit.critical}, high ${snapshot.audit.high})`,
+      `  Vulnerabilities: ${snapshot.audit.total} (C:${snapshot.audit.critical} H:${snapshot.audit.high}) — deps ${dep}, source ${src}`,
     );
+    console.log(`  Scanner:       sublyzer-runtime (offline)`);
   } else {
-    console.log(`  Vulnerabilities: skipped (${snapshot.audit.error || 'npm audit unavailable'})`);
+    console.log(`  Vulnerabilities: skipped (${snapshot.audit.error || 'unavailable'})`);
   }
   if (snapshot.analysis?.ran) {
     console.log(`  Code issues:   ${snapshot.summary.issueCount ?? snapshot.analysis.issues.length}`);

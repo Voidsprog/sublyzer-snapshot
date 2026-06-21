@@ -201,7 +201,7 @@ npx sublyzer-snapshot report --badge
 
 - **Stack** — Next.js, NestJS, Express, Fastify, Remix, Nuxt, SvelteKit, React, Vue
 - **Routes** — `app/` / `pages/` or source patterns
-- **Dependencies** + `npm audit` + outdated packages
+- **Vulnerabilities** — `sublyzer-runtime` offline engine (npm/pnpm/yarn audit + source patterns)
 - **Build size** — `dist/`, `.next/`, `build/` folders
 - **Git** — branch, commit, dirty state
 - **Health score** — 0–100, grade A–F

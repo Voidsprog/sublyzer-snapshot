@@ -76,6 +76,16 @@ export function renderHtmlReport(
   const bench = a?.benchmarks;
   const issues = a?.issues || [];
 
+  const vulnHtml = snapshot.audit.findings?.length
+    ? `<table class="issues"><thead><tr><th>Severity</th><th>Scanner</th><th>Location</th><th>Issue</th></tr></thead><tbody>${snapshot.audit.findings
+        .slice(0, 20)
+        .map(
+          (f) =>
+            `<tr class="sev-${f.severity}"><td>${esc(f.severity)}</td><td>${esc(f.scanner)}</td><td><code>${esc(f.file ? `${f.file}${f.line ? `:${f.line}` : ''}` : f.name)}</code></td><td>${esc(f.title)}</td></tr>`,
+        )
+        .join('')}</tbody></table><p class="muted">Engine: sublyzer-runtime (offline)</p>`
+    : `<p class="muted">No vulnerabilities detected.</p>`;
+
   const issuesHtml = issues.length
     ? `<table class="issues"><thead><tr><th>Severity</th><th>Category</th><th>Issue</th><th>File</th></tr></thead><tbody>${issues
         .slice(0, 30)
@@ -187,6 +197,11 @@ ${bench ? `<section>
 </section>
 
 ${nextjsHtml ? `<section><h2>Next.js patterns</h2>${nextjsHtml}</section>` : ''}
+
+<section>
+  <h2>Vulnerabilities</h2>
+  ${vulnHtml}
+</section>
 
 <section>
   <h2>Top issues</h2>

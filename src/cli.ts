@@ -26,7 +26,7 @@ const FAIL_ON_LEVELS: FailOnLevel[] = ['critical', 'high', 'moderate', 'any'];
 function sharedScanOptions(cmd: Command) {
   return cmd
     .option('--path <dir>', 'Scan a subfolder (e.g. frontend, backend)')
-    .option('--skip-audit', 'Skip npm audit')
+    .option('--skip-audit', 'Skip vulnerability scan (deps + source patterns)')
     .option('--skip-outdated', 'Skip npm outdated check')
     .option('--skip-bundle', 'Skip build output size scan')
     .option('--skip-deep', 'Skip deep analysis (complexity, smells, benchmarks)')
