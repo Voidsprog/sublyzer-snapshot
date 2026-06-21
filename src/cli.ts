@@ -28,6 +28,7 @@ function sharedScanOptions(cmd: Command) {
     .option('--skip-audit', 'Skip npm audit')
     .option('--skip-outdated', 'Skip npm outdated check')
     .option('--skip-bundle', 'Skip build output size scan')
+    .option('--skip-deep', 'Skip deep analysis (complexity, smells, benchmarks)')
     .option('--json', 'JSON output')
     .option('--fail-on <level>', 'Exit 1 on vulns: critical|high|moderate|any');
 }
@@ -52,6 +53,7 @@ sharedScanOptions(
         skipAudit: opts.skipAudit,
         skipOutdated: opts.skipOutdated,
         skipBundle: opts.skipBundle,
+        skipDeep: opts.skipDeep,
         json: opts.json,
         failOn,
       });
@@ -109,6 +111,7 @@ sharedScanOptions(
         skipAudit: opts.skipAudit,
         skipOutdated: opts.skipOutdated,
         skipBundle: opts.skipBundle,
+        skipDeep: opts.skipDeep,
         json: opts.json,
         failOn,
       });
@@ -169,8 +172,10 @@ program
 
 program
   .command('report')
-  .description('Markdown health report')
+  .description('Health report — Markdown, HTML dashboard, or README badge')
   .option('--out <file>', 'Write to file')
+  .option('--html', 'Interactive offline HTML dashboard')
+  .option('--badge', 'Generate SVG badge + README snippet')
   .option('--rescan', 'Fresh scan')
   .option('--path <dir>', 'Scan path with --rescan')
   .option('--skip-audit', 'Skip audit')
@@ -179,6 +184,8 @@ program
     try {
       const out = await runReport({
         out: opts.out,
+        html: opts.html,
+        badge: opts.badge,
         rescan: opts.rescan,
         path: opts.path,
         skipAudit: opts.skipAudit,

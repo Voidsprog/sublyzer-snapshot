@@ -1,0 +1,19 @@
+{
+  "rules": [
+    {
+      "id": "no-eval",
+      "message": "Avoid eval() — security risk",
+      "severity": "high",
+      "match": "\\beval\\s*\\("
+    },
+    {
+      "id": "require-env-example",
+      "message": "Project should document env vars in .env.example",
+      "severity": "warning",
+      "files": ".",
+      "pathMatch": "package\\.json$",
+      "match": "\"name\"",
+      "invert": true
+    }
+  ]
+}

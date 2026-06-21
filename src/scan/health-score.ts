@@ -1,3 +1,4 @@
+import type { ProjectAnalysis } from '../analyze/types.js';
 import type { ProjectSnapshot } from './snapshot.js';
 
 export type HealthGrade = 'A' | 'B' | 'C' | 'D' | 'F';
@@ -6,6 +7,7 @@ export type HealthScore = {
   score: number;
   grade: HealthGrade;
   factors: { label: string; impact: number }[];
+  trend?: { delta: number; label: string } | null;
 };
 
 function gradeFromScore(score: number): HealthGrade {
@@ -16,7 +18,11 @@ function gradeFromScore(score: number): HealthGrade {
   return 'F';
 }
 
-export function computeHealthScore(snapshot: ProjectSnapshot): HealthScore {
+export function computeHealthScore(
+  snapshot: ProjectSnapshot,
+  analysis?: ProjectAnalysis | null,
+  trendDelta?: number | null,
+): HealthScore {
   let score = 100;
   const factors: HealthScore['factors'] = [];
   const s = snapshot.summary;
@@ -59,12 +65,63 @@ export function computeHealthScore(snapshot: ProjectSnapshot): HealthScore {
     factors.push({ label: `${snapshot.outdated.majorCount} major outdated package(s)`, impact: -impact });
   }
 
+  if (analysis?.ran) {
+    const highIssues = analysis.issues.filter((i) => i.severity === 'high').length;
+    const warnIssues = analysis.issues.filter((i) => i.severity === 'warning').length;
+    if (highIssues > 0) {
+      const impact = Math.min(15, highIssues * 4);
+      score -= impact;
+      factors.push({ label: `${highIssues} high-severity code issue(s)`, impact: -impact });
+    }
+    if (warnIssues > 3) {
+      const impact = Math.min(10, (warnIssues - 3) * 2);
+      score -= impact;
+      factors.push({ label: `${warnIssues} code warnings`, impact: -impact });
+    }
+    if (analysis.unusedDeps.length > 5) {
+      const impact = Math.min(8, (analysis.unusedDeps.length - 5) * 2);
+      score -= impact;
+      factors.push({ label: `${analysis.unusedDeps.length} possibly unused dependencies`, impact: -impact });
+    }
+    if (analysis.nextjs && analysis.nextjs.clientRatio > 70) {
+      score -= 5;
+      factors.push({ label: `High client component ratio (${analysis.nextjs.clientRatio}%)`, impact: -5 });
+    }
+    if (analysis.benchmarks && analysis.benchmarks.percentile >= 75) {
+      factors.push({ label: `Top ${100 - analysis.benchmarks.percentile}% vs similar ${snapshot.stack.label} apps`, impact: 0 });
+    }
+  }
+
   if (snapshot.workspaces?.packages && snapshot.workspaces.packages.length > 1) {
     factors.push({ label: `Monorepo (${snapshot.workspaces.packages.length} packages)`, impact: 0 });
   }
 
+  if (trendDelta != null && trendDelta > 0) {
+    factors.push({ label: `Improving trend (+${trendDelta} pts)`, impact: 0 });
+  } else if (trendDelta != null && trendDelta < 0) {
+    const impact = Math.min(5, Math.abs(trendDelta));
+    score -= impact;
+    factors.push({ label: `Declining trend (${trendDelta} pts)`, impact: -impact });
+  }
+
   score = Math.max(0, Math.min(100, Math.round(score)));
-  return { score, grade: gradeFromScore(score), factors };
+  return {
+    score,
+    grade: gradeFromScore(score),
+    factors,
+    trend:
+      trendDelta != null
+        ? {
+            delta: trendDelta,
+            label:
+              trendDelta > 0
+                ? `+${trendDelta} since first recorded scan`
+                : trendDelta < 0
+                  ? `${trendDelta} since first recorded scan`
+                  : 'Stable',
+          }
+        : null,
+  };
 }
 
 export function formatHealthBar(score: number): string {

@@ -82,8 +82,9 @@ Do **not** run `npm i sublyzer-snapshot` in random folders — use `npx` to avoi
 ```bash
 cd your-project
 npx sublyzer-snapshot scan
+npx sublyzer-snapshot report --html
+npx sublyzer-snapshot report --badge
 npx sublyzer-snapshot report --out HEALTH.md
-npx sublyzer-snapshot compare
 ```
 
 ### Save preferences (local)
@@ -127,7 +128,7 @@ On `init`, other scannable packages in the repo are listed as hints.
 | **`scan`** | Local scan — **no init, no account** |
 | `init` | Save config — `--local` or `--code` for cloud |
 | `run` | Scan + history (pushes in cloud mode or with `--push`) |
-| `report` | Markdown report (`--out file.md`) |
+| `report` | Markdown, **`--html`** dashboard, or **`--badge`** for README |
 | `compare` | Diff vs previous scan |
 | `doctor` | Verify Node, scan target, optional cloud |
 | `status` | Config + last scan |
@@ -139,9 +140,58 @@ On `init`, other scannable packages in the repo are listed as hints.
 ```bash
 npx sublyzer-snapshot scan --path frontend
 npx sublyzer-snapshot scan --fail-on high --json
+npx sublyzer-snapshot scan --skip-deep          # fast scan, skip code analysis
+npx sublyzer-snapshot report --html --out report.html
+npx sublyzer-snapshot report --badge
 npx sublyzer-snapshot run --local              # never push
 npx sublyzer-snapshot run --push               # force cloud push
 npx sublyzer-snapshot run --skip-audit         # faster
+```
+
+---
+
+## 🧠 Deep analysis (v0.5)
+
+Every scan includes (unless `--skip-deep`):
+
+- **Intelligent health score** — CVEs, trends, code issues, Next.js patterns
+- **Health trends** — history chart in HTML report
+- **Code smells** — long files, deep nesting, `any`, empty catch, console.log
+- **Cyclomatic complexity** — top hotspots
+- **Duplicate blocks** — repeated code detection
+- **Next.js anti-patterns** — client ratio, missing `use client`, fetch in client
+- **Unused dependencies** — import scan
+- **Bundle treemap** — breakdown of `.next/` / `dist/`
+- **Benchmarks** — percentile vs similar apps (anonymous heuristics)
+- **Multi-stack** — also detects Python (`pyproject.toml`) and Go (`go.mod`)
+
+### Custom rules
+
+Add `.sublyzer/rules.json` or `.sublyzer/rules.js`:
+
+```json
+{
+  "rules": [
+    {
+      "id": "no-eval",
+      "message": "Avoid eval()",
+      "severity": "high",
+      "match": "\\beval\\s*\\("
+    }
+  ]
+}
+```
+
+See [examples/rules.json](./examples/rules.json).
+
+### Beautiful reports
+
+```bash
+# Offline HTML dashboard (charts, treemap, issues)
+npx sublyzer-snapshot report --html
+
+# SVG badge + README snippet
+npx sublyzer-snapshot report --badge
 ```
 
 ---
@@ -204,11 +254,15 @@ your-project/
 - [x] Local vs cloud modes
 - [x] Monorepo auto-target (`frontend/`, workspaces)
 - [x] Build output size scan
-- [x] Health score + compare + report + CI template
+- [x] Health score + trends + benchmarks
+- [x] Deep analysis (complexity, smells, Next.js patterns)
+- [x] HTML dashboard + README badge
+- [x] Custom rules (`.sublyzer/rules.json`)
+- [x] Python / Go detection (secondary stacks)
 - [ ] `login` OAuth (no manual code paste)
 - [ ] SARIF export for GitHub Security
 - [ ] PR comment bot
-- [ ] Python / Go stack detection
+- [ ] Real anonymous benchmark API (aggregated cloud data)
 
 ---
 

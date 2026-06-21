@@ -10,6 +10,7 @@ export type RunOptions = {
   skipAudit?: boolean;
   skipOutdated?: boolean;
   skipBundle?: boolean;
+  skipDeep?: boolean;
   json?: boolean;
   failOn?: FailOnLevel;
 };
@@ -26,6 +27,7 @@ export async function runRunCommand(opts: RunOptions = {}) {
     skipAudit: opts.skipAudit,
     skipOutdated: opts.skipOutdated,
     skipBundle: opts.skipBundle,
+    skipDeep: opts.skipDeep,
     json: opts.json,
     failOn: opts.failOn,
   });

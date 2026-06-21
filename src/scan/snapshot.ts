@@ -9,6 +9,9 @@ import { detectBundleSizes, type BundleSizeInfo } from './bundle-size.js';
 import { computeHealthScore, formatHealthBar, type HealthScore } from './health-score.js';
 import { runNpmAudit, type AuditSummary } from './audit.js';
 import { runNpmOutdated, type OutdatedSummary } from './outdated.js';
+import { runProjectAnalysis } from '../analyze/index.js';
+import type { ProjectAnalysis } from '../analyze/types.js';
+import { loadScanTrends, trendDelta } from './history-trends.js';
 
 export type ProjectSnapshot = {
   scannedAt: string;
@@ -28,6 +31,7 @@ export type ProjectSnapshot = {
   bundle: BundleSizeInfo;
   audit: AuditSummary;
   health: HealthScore;
+  analysis?: ProjectAnalysis;
   summary: {
     routeCount: number;
     productionDeps: number;
@@ -38,6 +42,7 @@ export type ProjectSnapshot = {
     healthScore: number;
     healthGrade: HealthScore['grade'];
     bundleMb: number;
+    issueCount?: number;
   };
 };
 
@@ -45,14 +50,16 @@ export type BuildSnapshotOptions = {
   skipAudit?: boolean;
   skipOutdated?: boolean;
   skipBundle?: boolean;
+  skipDeep?: boolean;
   target?: ScanTarget;
+  configAnchor?: string;
 };
-
-export function buildProjectSnapshot(
+export async function buildProjectSnapshot(
   root = process.cwd(),
   opts: BuildSnapshotOptions = {},
-): ProjectSnapshot {
+): Promise<ProjectSnapshot> {
   const scanRoot = opts.target?.root || root;
+  const anchor = opts.configAnchor || root;
   const stack = opts.target?.stack || detectStack(scanRoot);
   const routes = detectRoutes(stack.id, scanRoot);
   const dependencies = listDependencies(scanRoot);
@@ -72,7 +79,7 @@ export function buildProjectSnapshot(
   const productionDeps = dependencies.filter((d) => !d.dev).length;
   const devDeps = dependencies.filter((d) => d.dev).length;
 
-  const partial = {
+  const partial: ProjectSnapshot = {
     scannedAt: new Date().toISOString(),
     projectName: readProjectName(scanRoot),
     scanRoot,
@@ -89,6 +96,7 @@ export function buildProjectSnapshot(
     outdated,
     bundle,
     audit,
+    health: { score: 0, grade: 'F', factors: [] },
     summary: {
       routeCount: routes.length,
       productionDeps,
@@ -97,18 +105,24 @@ export function buildProjectSnapshot(
       criticalVulns: audit.critical,
       highVulns: audit.high,
       healthScore: 0,
-      healthGrade: 'F' as HealthScore['grade'],
+      healthGrade: 'F',
       bundleMb: bundle.totalMb,
     },
   };
 
-  const health = computeHealthScore(partial as ProjectSnapshot);
+  const analysis = await runProjectAnalysis(partial, { skipDeep: opts.skipDeep, anchor });
+  const trends = loadScanTrends(anchor);
+  const td = trendDelta(trends);
+  const health = computeHealthScore(partial, analysis, td?.health ?? null);
+
+  partial.health = health;
+  partial.analysis = analysis;
   partial.summary.healthScore = health.score;
   partial.summary.healthGrade = health.grade;
+  partial.summary.issueCount = analysis.issues.length;
 
-  return { ...partial, health } as ProjectSnapshot;
+  return partial;
 }
-
 export type CollectItem = {
   dataType: 'custom_event' | 'vulnerability' | 'performance';
   severity?: 'low' | 'medium' | 'high' | 'critical';
@@ -251,6 +265,15 @@ export function printLocalSummary(snapshot: ProjectSnapshot): void {
     );
   } else {
     console.log(`  Vulnerabilities: skipped (${snapshot.audit.error || 'npm audit unavailable'})`);
+  }
+  if (snapshot.analysis?.ran) {
+    console.log(`  Code issues:   ${snapshot.summary.issueCount ?? snapshot.analysis.issues.length}`);
+    if (snapshot.analysis.benchmarks) {
+      console.log(`  Benchmark:     ${snapshot.analysis.benchmarks.label}`);
+    }
+    if (snapshot.analysis.secondaryStacks?.length) {
+      console.log(`  Also found:    ${snapshot.analysis.secondaryStacks.map((s) => s.label).join(', ')}`);
+    }
   }
   if (snapshot.routes.length) {
     console.log('  Sample routes:');

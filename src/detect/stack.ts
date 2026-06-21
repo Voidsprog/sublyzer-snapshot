@@ -64,7 +64,9 @@ export function detectStack(root = process.cwd()): DetectedStack {
 
   if (deps.next) {
     hints.push('package.json → next');
-    if (exists(root, 'app') || exists(root, 'pages')) hints.push('app/ or pages/ directory');
+    if (exists(root, 'app') || exists(root, 'pages') || exists(root, 'src/app') || exists(root, 'src/pages')) {
+      hints.push('app/ or pages/ directory');
+    }
     return { id: 'nextjs', label: 'Next.js', confidence: 'high', hints, frameworkVersions: versions };
   }
 

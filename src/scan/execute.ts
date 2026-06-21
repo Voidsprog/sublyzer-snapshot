@@ -25,6 +25,7 @@ export type ExecuteScanOptions = {
   skipAudit?: boolean;
   skipOutdated?: boolean;
   skipBundle?: boolean;
+  skipDeep?: boolean;
   dryRun?: boolean;
   push?: boolean;
   json?: boolean;
@@ -76,11 +77,13 @@ export async function executeScan(opts: ExecuteScanOptions = {}): Promise<Execut
   }
 
   const previous = loadLastSnapshot(anchor);
-  const snapshot = buildProjectSnapshot(anchor, {
+  const snapshot = await buildProjectSnapshot(anchor, {
     skipAudit: opts.skipAudit,
     skipOutdated: opts.skipOutdated,
     skipBundle: opts.skipBundle,
+    skipDeep: opts.skipDeep,
     target,
+    configAnchor: anchor,
   });
 
   const healthDelta = previous

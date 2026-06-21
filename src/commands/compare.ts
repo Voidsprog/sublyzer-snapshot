@@ -21,9 +21,10 @@ export async function runCompare(opts: CompareOptions = {}): Promise<Record<stri
 
   const previous = loadPreviousSnapshot(anchor) || loadLastSnapshot(anchor);
   const current = opts.rescan
-    ? buildProjectSnapshot(anchor, {
+    ? await buildProjectSnapshot(anchor, {
         skipAudit: opts.skipAudit,
         target: resolveScanTarget(anchor, opts.path || config?.scanRoot),
+        configAnchor: anchor,
       })
     : loadLastSnapshot(anchor);
 

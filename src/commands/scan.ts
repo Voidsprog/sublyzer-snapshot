@@ -7,6 +7,7 @@ export type ScanOptions = {
   skipAudit?: boolean;
   skipOutdated?: boolean;
   skipBundle?: boolean;
+  skipDeep?: boolean;
   push?: boolean;
   dryRun?: boolean;
   json?: boolean;
@@ -20,6 +21,7 @@ export async function runScanCommand(opts: ScanOptions = {}) {
     skipAudit: opts.skipAudit,
     skipOutdated: opts.skipOutdated,
     skipBundle: opts.skipBundle,
+    skipDeep: opts.skipDeep,
     push: opts.push ?? false,
     dryRun: opts.dryRun,
     json: opts.json,
