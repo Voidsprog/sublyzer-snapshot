@@ -257,7 +257,6 @@ your-project/
 
 ## 🛣️ Roadmap
 
-- [x] npm publish — [sublyzer-snapshot](https://www.npmjs.com/package/sublyzer-snapshot)
 - [x] Standalone `scan` (no account)
 - [x] Local vs cloud modes
 - [x] Monorepo auto-target (`frontend/`, workspaces)
