@@ -1,7 +1,7 @@
 {
   "name": "sublyzer-snapshot",
-  "version": "0.4.0",
-  "description": "Open-source CLI — local project health scanner for Node.js (optional Sublyzer cloud sync)",
+  "version": "0.4.1",
+  "description": "Open-source CLI - local project health scanner for Node.js (optional Sublyzer cloud sync)",
   "author": "Sublyzer <sublyzerone@gmail.com>",
   "license": "MIT",
   "homepage": "https://github.com/sublyzer-one/sublyzer-snapshot#readme",
@@ -10,7 +10,7 @@
   },
   "type": "module",
   "bin": {
-    "sublyzer-snapshot": "./dist/cli.js"
+    "sublyzer-snapshot": "dist/cli.js"
   },
   "files": [
     "dist",
@@ -40,7 +40,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/sublyzer-one/sublyzer-snapshot.git"
+    "url": "git+https://github.com/sublyzer-one/sublyzer-snapshot.git"
   },
   "dependencies": {
     "commander": "^12.1.0"

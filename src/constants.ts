@@ -1,5 +1,5 @@
 export const SDK_NAME = 'sublyzer-snapshot';
-export const SDK_VERSION = '0.4.0';
+export const SDK_VERSION = '0.4.1';
 
 export const DEFAULT_API_URL = 'https://api.sublyzer.com';
 export const DEFAULT_DASHBOARD_URL = 'https://sublyzer.com';
