@@ -31,6 +31,12 @@ Works **standalone** — no account required. Optionally sync to [Sublyzer](http
   ✓ Saved to .sublyzer/ (local)
 ```
 
+<br />
+
+<img src="./dashboard.png" alt="Sublyzer Snapshot dashboard report" width="900" />
+
+**Dashboard report** — offline HTML with health score, trends, treemap, and issues. Run `npx sublyzer-snapshot dashboard` to generate and open it in your browser.
+
 </div>
 
 ---
@@ -186,16 +192,6 @@ Add `.sublyzer/rules.json` or `.sublyzer/rules.js`:
 See [examples/rules.json](./examples/rules.json).
 
 ### Beautiful reports
-
-<div align="center">
-
-<img src="./dashboard.png" alt="Sublyzer Snapshot HTML dashboard" width="900" />
-
-<sub>Offline HTML dashboard — health score, trends, treemap, issues</sub>
-
-</div>
-
-<br />
 
 ```bash
 # Generate and open HTML dashboard in your browser
