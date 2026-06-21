@@ -1,5 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { CONFIG_DIR, HTML_REPORT_FILE } from '../constants.js';
 import { dashboardIntegrationUrl, tryLoadConfig } from '../config.js';
 import { diffSnapshots, loadLastSnapshot, loadPreviousSnapshot } from '../scan/history.js';
 import { loadScanTrends } from '../scan/history-trends.js';
@@ -10,21 +11,25 @@ import { renderHealthBadge, renderReadmeBadgeBlock } from '../report/badge.js';
 import { renderHtmlReport } from '../report/html.js';
 import { renderMarkdownReport } from '../report/markdown.js';
 import { info, ok, title } from '../utils/log.js';
+import { openInBrowser } from '../utils/open-browser.js';
 
 export type ReportOptions = {
   out?: string;
   html?: boolean;
   badge?: boolean;
+  open?: boolean;
   rescan?: boolean;
   skipAudit?: boolean;
   path?: string;
   json?: boolean;
 };
 
-export async function runReport(opts: ReportOptions = {}): Promise<string> {
-  const config = tryLoadConfig();
-  const anchor = config?.configRoot || process.cwd();
+export function defaultHtmlReportPath(anchor: string): string {
+  return path.resolve(anchor, CONFIG_DIR, HTML_REPORT_FILE);
+}
 
+async function resolveSnapshotForReport(anchor: string, opts: ReportOptions) {
+  const config = tryLoadConfig(anchor);
   let snapshot = opts.rescan
     ? await buildProjectSnapshot(anchor, {
         skipAudit: opts.skipAudit,
@@ -41,6 +46,34 @@ export async function runReport(opts: ReportOptions = {}): Promise<string> {
       configAnchor: anchor,
     });
   }
+
+  return { snapshot, config };
+}
+
+export async function writeHtmlDashboard(
+  anchor: string,
+  opts: Pick<ReportOptions, 'out' | 'rescan' | 'skipAudit' | 'path'> = {},
+): Promise<string> {
+  const { snapshot, config } = await resolveSnapshotForReport(anchor, opts);
+  const health = snapshot.health ?? computeHealthScore(snapshot, snapshot.analysis);
+  const previous = loadPreviousSnapshot(anchor);
+  const diff = previous
+    ? diffSnapshots(previous, snapshot, health.score - (previous.health?.score ?? previous.summary?.healthScore ?? 0))
+    : null;
+  const trends = loadScanTrends(anchor);
+  const dash = config ? dashboardIntegrationUrl(config) : null;
+
+  const html = renderHtmlReport(snapshot, health, trends, diff, dash);
+  const outPath = path.resolve(anchor, opts.out || path.join(CONFIG_DIR, HTML_REPORT_FILE));
+  fs.mkdirSync(path.dirname(outPath), { recursive: true });
+  fs.writeFileSync(outPath, html, 'utf8');
+  return outPath;
+}
+
+export async function runReport(opts: ReportOptions = {}): Promise<string> {
+  const config = tryLoadConfig();
+  const anchor = config?.configRoot || process.cwd();
+  const { snapshot } = await resolveSnapshotForReport(anchor, opts);
 
   const health = snapshot.health ?? computeHealthScore(snapshot, snapshot.analysis);
   const previous = loadPreviousSnapshot(anchor);
@@ -69,14 +102,16 @@ export async function runReport(opts: ReportOptions = {}): Promise<string> {
 
   title('Sublyzer Snapshot — report');
 
-  if (opts.html) {
-    const html = renderHtmlReport(snapshot, health, trends, diff, dash);
-    const outPath = path.resolve(anchor, opts.out || '.sublyzer/report.html');
-    fs.mkdirSync(path.dirname(outPath), { recursive: true });
-    fs.writeFileSync(outPath, html, 'utf8');
+  if (opts.html || opts.open) {
+    const outPath = await writeHtmlDashboard(anchor, opts);
     ok(`Wrote HTML dashboard → ${outPath}`);
-    info('Open in browser for interactive offline report');
-    return html;
+    if (opts.open) {
+      openInBrowser(outPath);
+      ok('Opened dashboard in your browser');
+    } else {
+      info('Open in browser: npx sublyzer-snapshot dashboard');
+    }
+    return outPath;
   }
 
   if (opts.badge) {

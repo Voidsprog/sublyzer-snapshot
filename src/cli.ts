@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { Command } from 'commander';
 import { SDK_NAME, SDK_VERSION, type FailOnLevel } from './constants.js';
+import { runDashboard } from './commands/dashboard.js';
 import { runCi } from './commands/ci.js';
 import { runCompare } from './commands/compare.js';
 import { runDoctor } from './commands/doctor.js';
@@ -175,6 +176,7 @@ program
   .description('Health report — Markdown, HTML dashboard, or README badge')
   .option('--out <file>', 'Write to file')
   .option('--html', 'Interactive offline HTML dashboard')
+  .option('--open', 'Open HTML dashboard in browser (with --html)')
   .option('--badge', 'Generate SVG badge + README snippet')
   .option('--rescan', 'Fresh scan')
   .option('--path <dir>', 'Scan path with --rescan')
@@ -185,6 +187,7 @@ program
       const out = await runReport({
         out: opts.out,
         html: opts.html,
+        open: opts.open,
         badge: opts.badge,
         rescan: opts.rescan,
         path: opts.path,
@@ -234,8 +237,30 @@ program
   });
 
 program
+  .command('dashboard')
+  .description('Generate and open local HTML health dashboard in browser')
+  .option('--out <file>', 'HTML output path (default: .sublyzer/report.html)')
+  .option('--rescan', 'Fresh scan before generating')
+  .option('--path <dir>', 'Scan path with --rescan')
+  .option('--skip-audit', 'Skip audit with --rescan')
+  .option('--no-open', 'Write HTML only, do not launch browser')
+  .action(async (opts) => {
+    try {
+      await runDashboard({
+        out: opts.out,
+        rescan: opts.rescan,
+        path: opts.path,
+        skipAudit: opts.skipAudit,
+        noOpen: opts.open === false,
+      });
+    } catch (e) {
+      handleError(e);
+    }
+  });
+
+program
   .command('open')
-  .description('Open Sublyzer dashboard (cloud mode only)')
+  .description('Open Sublyzer cloud dashboard (requires init --code)')
   .action(async () => {
     try {
       await runOpen();

@@ -128,7 +128,8 @@ On `init`, other scannable packages in the repo are listed as hints.
 | **`scan`** | Local scan — **no init, no account** |
 | `init` | Save config — `--local` or `--code` for cloud |
 | `run` | Scan + history (pushes in cloud mode or with `--push`) |
-| `report` | Markdown, **`--html`** dashboard, or **`--badge`** for README |
+| `report` | Markdown, **`--html`**, **`--badge`** |
+| **`dashboard`** | Gera e abre HTML no browser |
 | `compare` | Diff vs previous scan |
 | `doctor` | Verify Node, scan target, optional cloud |
 | `status` | Config + last scan |

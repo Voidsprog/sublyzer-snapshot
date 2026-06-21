@@ -139,7 +139,8 @@ export async function executeScan(opts: ExecuteScanOptions = {}): Promise<Execut
       warn('Dry run — scan saved locally, nothing pushed.');
     } else if (!opts.json && !wantPush) {
       info('Local-only scan saved to .sublyzer/');
-      info('Optional cloud sync: npx sublyzer-snapshot init --code YOUR_CODE  then  run --push');
+      info('View dashboard:  npx sublyzer-snapshot dashboard');
+      info('Optional cloud:  npx sublyzer-snapshot init --code YOUR_CODE  then  run --push');
     }
     return {
       success: true,
@@ -169,6 +170,7 @@ export async function executeScan(opts: ExecuteScanOptions = {}): Promise<Execut
   if (!opts.json) {
     ok(`Sent ${eventsSent} events`);
     if (dash) console.log(`  Dashboard: ${dash}`);
+    info('Local dashboard: npx sublyzer-snapshot dashboard');
     console.log('');
   }
 
